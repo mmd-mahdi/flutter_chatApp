@@ -1,44 +1,51 @@
 import 'package:flutter/material.dart';
-import '../models/message_model.dart';
-import '../utils/animations.dart';
 
 class MessageBubble extends StatelessWidget {
-  final MessageModel message;
+  final String message;
   final bool isMe;
+  final DateTime timestamp;
 
-  const MessageBubble({super.key, required this.message, required this.isMe});
+  const MessageBubble({
+    super.key,
+    required this.message,
+    required this.isMe,
+    required this.timestamp,
+  });
+
+  String _formatTimestamp(DateTime timestamp) {
+    final hour = timestamp.hour % 12 == 0 ? 12 : timestamp.hour % 12;
+    final minute = timestamp.minute.toString().padLeft(2, '0');
+    final period = timestamp.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$minute $period';
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: SlideAnimation(
-        controller: AnimationController(
-          vsync: Navigator.of(context),
-          duration: const Duration(milliseconds: 300),
-        )..forward(),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
+      child: Align(
+        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
         child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-          padding: const EdgeInsets.all(10),
+          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+          padding: const EdgeInsets.all(10.0),
           decoration: BoxDecoration(
-            color: isMe
-                ? Theme.of(context).primaryColor
-                : Theme.of(context).colorScheme.secondary,
-            borderRadius: BorderRadius.circular(12),
+            color: isMe ? Colors.blue[200] : Colors.grey[200],
+            borderRadius: BorderRadius.circular(10.0),
           ),
           child: Column(
             crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
             children: [
               Text(
-                message.content,
-                style: TextStyle(
-                  color: isMe ? Colors.white : Colors.black87,
-                ),
+                message,
+                style: const TextStyle(fontSize: 16.0),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 4.0),
               Text(
-                '${message.timestamp.hour}:${message.timestamp.minute}',
-                style: const TextStyle(fontSize: 10, color: Colors.grey),
+                _formatTimestamp(timestamp),
+                style: TextStyle(
+                  fontSize: 12.0,
+                  color: Colors.grey[600],
+                ),
               ),
             ],
           ),

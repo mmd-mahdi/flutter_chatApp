@@ -45,42 +45,43 @@ class DatabaseService {
         .toList();
   }
 
-  Future<List<UserModel>> getChattedContacts(String userId) async {
-    final messagesSnapshot = await _firestore
+  Stream<List<UserModel>> getChattedContacts(String userId) {
+    return _firestore
         .collection('messages')
         .where('senderId', isEqualTo: userId)
         .limit(100)
-        .get();
+        .snapshots()
+        .asyncMap((messagesSnapshot) async {
+      final receivedMessagesSnapshot = await _firestore
+          .collection('messages')
+          .where('receiverId', isEqualTo: userId)
+          .limit(100)
+          .get();
 
-    final receivedMessagesSnapshot = await _firestore
-        .collection('messages')
-        .where('receiverId', isEqualTo: userId)
-        .limit(100)
-        .get();
+      final contactIds = <String>{};
+      for (var doc in messagesSnapshot.docs) {
+        contactIds.add(doc['receiverId']);
+      }
+      for (var doc in receivedMessagesSnapshot.docs) {
+        contactIds.add(doc['senderId']);
+      }
+      contactIds.remove(userId);
 
-    final contactIds = <String>{};
-    for (var doc in messagesSnapshot.docs) {
-      contactIds.add(doc['receiverId']);
-    }
-    for (var doc in receivedMessagesSnapshot.docs) {
-      contactIds.add(doc['senderId']);
-    }
-    contactIds.remove(userId);
+      if (contactIds.isEmpty) return [];
 
-    if (contactIds.isEmpty) return [];
+      final usersSnapshot = await _firestore
+          .collection('users')
+          .where(FieldPath.documentId, whereIn: contactIds.toList())
+          .get();
 
-    final usersSnapshot = await _firestore
-        .collection('users')
-        .where(FieldPath.documentId, whereIn: contactIds.toList())
-        .get();
-
-    return usersSnapshot.docs
-        .map((doc) => UserModel(
-      id: doc.id,
-      email: doc['email'],
-      displayName: doc['displayName'],
-    ))
-        .toList();
+      return usersSnapshot.docs
+          .map((doc) => UserModel(
+        id: doc.id,
+        email: doc['email'],
+        displayName: doc['displayName'],
+      ))
+          .toList();
+    });
   }
 
   Stream<List<MessageModel>> getMessages(String userId, String receiverId) {
@@ -88,7 +89,7 @@ class DatabaseService {
         .collection('messages')
         .where('senderId', whereIn: [userId, receiverId])
         .where('receiverId', whereIn: [userId, receiverId])
-        .orderBy('timestamp', descending: true)
+        .orderBy('timestamp', descending: false) // Changed to ascending order
         .limit(100)
         .snapshots()
         .map((snapshot) => snapshot.docs

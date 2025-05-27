@@ -16,8 +16,8 @@ class HomeScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Chats')),
-      body: FutureBuilder<List<UserModel>>(
-        future: databaseService.getChattedContacts(userId),
+      body: StreamBuilder<List<UserModel>>(
+        stream: databaseService.getChattedContacts(userId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());

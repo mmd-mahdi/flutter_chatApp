@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/user_model.dart';
 import '../../models/message_model.dart';
 import '../../services/database_service.dart';
 import '../../widgets/message_bubble.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../utils/animations.dart';
 
 class ChatScreen extends StatefulWidget {
   final UserModel receiver;
@@ -16,23 +17,41 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   final _messageController = TextEditingController();
+  late AnimationController _controller;
   final _databaseService = DatabaseService();
+  final _scrollController = ScrollController();
 
-  Future<void> _sendMessage() async {
-    if (_messageController.text.isNotEmpty) {
-      await _databaseService.addMessage(
-        FirebaseAuth.instance.currentUser!.uid,
-        widget.receiver.id,
-        _messageController.text,
-      );
-      _messageController.clear();
-    }
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 1));
+    _controller.forward();
   }
 
   @override
   void dispose() {
     _messageController.dispose();
+    _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _sendMessage() async {
+    if (_messageController.text.isNotEmpty) {
+      final userId = FirebaseAuth.instance.currentUser!.uid;
+      await _databaseService.addMessage(
+        userId,
+        widget.receiver.id,
+        _messageController.text,
+      );
+      _messageController.clear();
+      // Scroll to the bottom after sending a message
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   @override
@@ -40,10 +59,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     final userId = FirebaseAuth.instance.currentUser!.uid;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.receiver.displayName),
-        leading: CircleAvatar(child: Text(widget.receiver.displayName[0])),
-      ),
+      appBar: AppBar(title: Text(widget.receiver.displayName)),
       body: Column(
         children: [
           Expanded(
@@ -57,14 +73,22 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   return Center(child: Text('Error: ${snapshot.error}'));
                 }
                 final messages = snapshot.data ?? [];
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  // Scroll to the bottom when messages are loaded
+                  if (_scrollController.hasClients) {
+                    _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+                  }
+                });
                 return ListView.builder(
-                  reverse: true,
+                  controller: _scrollController,
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
-                    final message = messages[messages.length - 1 - index];
+                    final message = messages[index];
+                    final isMe = message.senderId == userId;
                     return MessageBubble(
-                      message: message,
-                      isMe: message.senderId == userId,
+                      message: message.content,
+                      isMe: isMe,
+                      timestamp: message.timestamp,
                     );
                   },
                 );
@@ -76,11 +100,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             child: Row(
               children: [
                 Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: const InputDecoration(
-                      hintText: 'Type a message...',
-                      border: OutlineInputBorder(),
+                  child: SlideAnimation(
+                    controller: _controller,
+                    child: TextField(
+                      controller: _messageController,
+                      decoration: const InputDecoration(labelText: 'Type a message'),
                     ),
                   ),
                 ),
