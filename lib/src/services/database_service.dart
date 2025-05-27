@@ -12,6 +12,18 @@ class DatabaseService {
     });
   }
 
+  Future<void> addContact(String userId, String contactId) async {
+    await _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('contacts')
+        .doc(contactId)
+        .set({
+      'contactId': contactId,
+      'addedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   Future<void> addMessage(String senderId, String receiverId, String content) async {
     await _firestore.collection('messages').add({
       'senderId': senderId,
@@ -33,12 +45,51 @@ class DatabaseService {
         .toList();
   }
 
+  Future<List<UserModel>> getChattedContacts(String userId) async {
+    final messagesSnapshot = await _firestore
+        .collection('messages')
+        .where('senderId', isEqualTo: userId)
+        .limit(100)
+        .get();
+
+    final receivedMessagesSnapshot = await _firestore
+        .collection('messages')
+        .where('receiverId', isEqualTo: userId)
+        .limit(100)
+        .get();
+
+    final contactIds = <String>{};
+    for (var doc in messagesSnapshot.docs) {
+      contactIds.add(doc['receiverId']);
+    }
+    for (var doc in receivedMessagesSnapshot.docs) {
+      contactIds.add(doc['senderId']);
+    }
+    contactIds.remove(userId);
+
+    if (contactIds.isEmpty) return [];
+
+    final usersSnapshot = await _firestore
+        .collection('users')
+        .where(FieldPath.documentId, whereIn: contactIds.toList())
+        .get();
+
+    return usersSnapshot.docs
+        .map((doc) => UserModel(
+      id: doc.id,
+      email: doc['email'],
+      displayName: doc['displayName'],
+    ))
+        .toList();
+  }
+
   Stream<List<MessageModel>> getMessages(String userId, String receiverId) {
     return _firestore
         .collection('messages')
         .where('senderId', whereIn: [userId, receiverId])
         .where('receiverId', whereIn: [userId, receiverId])
         .orderBy('timestamp', descending: true)
+        .limit(100)
         .snapshots()
         .map((snapshot) => snapshot.docs
         .map((doc) => MessageModel(

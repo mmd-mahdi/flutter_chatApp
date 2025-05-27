@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/user_model.dart';
 import '../../services/database_service.dart';
 import '../../utils/animations.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../chat/chat_screen.dart';
 
 class AddContactScreen extends StatefulWidget {
   const AddContactScreen({super.key});
@@ -15,6 +17,7 @@ class _AddContactScreenState extends State<AddContactScreen> with TickerProvider
   final _emailController = TextEditingController();
   late AnimationController _controller;
   final _firestore = FirebaseFirestore.instance;
+  final _databaseService = DatabaseService();
 
   @override
   void initState() {
@@ -39,12 +42,28 @@ class _AddContactScreenState extends State<AddContactScreen> with TickerProvider
             .get();
         if (query.docs.isNotEmpty) {
           final user = query.docs.first;
-          await DatabaseService().addUser(
-            user.id,
-            user['email'],
-            user['displayName'],
+          final contact = UserModel(
+            id: user.id,
+            email: user['email'],
+            displayName: user['displayName'],
           );
-          Navigator.pop(context);
+          final currentUserId = FirebaseAuth.instance.currentUser!.uid;
+
+          // Add the contact to the current user's contacts subcollection
+          await _databaseService.addContact(currentUserId, contact.id);
+
+          // Send an initial message to establish the chat relationship
+          await _databaseService.addMessage(
+            currentUserId,
+            contact.id,
+            'Hello! Let’s start chatting.',
+          );
+
+          // Navigate to ChatScreen
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => ChatScreen(receiver: contact)),
+          );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('User not found')),

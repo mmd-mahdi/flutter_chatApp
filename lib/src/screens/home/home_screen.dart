@@ -17,7 +17,7 @@ class HomeScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Chats')),
       body: FutureBuilder<List<UserModel>>(
-        future: databaseService.getContacts(userId),
+        future: databaseService.getChattedContacts(userId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -26,6 +26,9 @@ class HomeScreen extends StatelessWidget {
             return Center(child: Text('Error: ${snapshot.error}'));
           }
           final contacts = snapshot.data ?? [];
+          if (contacts.isEmpty) {
+            return const Center(child: Text('No chats yet. Start a new conversation!'));
+          }
           return ListView.builder(
             itemCount: contacts.length,
             itemBuilder: (context, index) {
