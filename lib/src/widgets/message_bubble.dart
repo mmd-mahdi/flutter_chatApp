@@ -19,6 +19,11 @@ class MessageBubble extends StatelessWidget {
     return '$hour:$minute $period';
   }
 
+  bool _isPersian(String text) {
+    // Simple check for Persian characters (Unicode range U+0600 to U+06FF)
+    return text.runes.any((rune) => rune >= 0x0600 && rune <= 0x06FF);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -35,9 +40,12 @@ class MessageBubble extends StatelessWidget {
           child: Column(
             crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
             children: [
-              Text(
-                message,
-                style: const TextStyle(fontSize: 16.0),
+              Directionality(
+                textDirection: _isPersian(message) ? TextDirection.rtl : TextDirection.ltr,
+                child: Text(
+                  message,
+                  style: const TextStyle(fontSize: 16.0),
+                ),
               ),
               const SizedBox(height: 4.0),
               Text(
